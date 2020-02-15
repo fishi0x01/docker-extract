@@ -1,0 +1,15 @@
+---
+version: 2.1
+jobs:
+  build:
+    docker:
+      - image: circleci/rust:1.41.0
+    steps:
+      - setup_remote_docker
+      - checkout
+      - run:
+          name: pull docker image
+          command: 'docker pull ubuntu:bionic-20200112'
+      - run:
+          name: test
+          command: 'cargo test'
