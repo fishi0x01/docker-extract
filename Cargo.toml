@@ -1,5 +1,5 @@
 [package]
-name = "dextract"
+name = "docker-extract"
 version = "0.1.0"
 authors = ["fishi0x01"]
 edition = "2018"
