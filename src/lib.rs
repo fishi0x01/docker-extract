@@ -10,12 +10,45 @@ use std::{fs, io};
 use tar::Archive;
 use tempdir::TempDir;
 
+/// Extract filesystem of the given docker image (`{image}:{tag}`) to the given path `to_dir`.
+///
+/// **Example:**
+/// ```rust
+///use std::path::Path;
+///use std::io;
+///# use tempdir::TempDir;
+///
+///fn main() -> io::Result<()>{
+///    let image = "alpine";
+///    let tag = "3.11.3";
+///#    let tmp_dir = TempDir::new("docker-extract-docu").expect("");
+///#    let dir_string = String::from(tmp_dir.path().to_str().unwrap());
+///    let to_dir = Path::new(dir_string.as_str());
+///    docker_extract::extract_image(image, tag, &to_dir)
+///}
+/// ```
 pub fn extract_image(image: &str, tag: &str, to_dir: &Path) -> io::Result<()> {
     let tmp_dir = TempDir::new("docker-extract")?;
     let tmp_dir_str = String::from(tmp_dir.path().to_str().unwrap());
     save_image(image, tag, tmp_dir_str.as_str())?;
     untar_layers(get_layers(image, tag, tmp_dir_str.as_str())?, to_dir)?;
     Ok(())
+}
+
+#[derive(Builder)]
+struct Layer {
+    tar_file_path: String,
+    meta_json_str: String,
+}
+
+impl Layer {
+    fn get_tar_file_path(&self) -> &str {
+        self.tar_file_path.as_str()
+    }
+
+    fn get_meta_json_str(&self) -> &str {
+        self.meta_json_str.as_str()
+    }
 }
 
 fn save_image(image: &str, tag: &str, to_dir: &str) -> io::Result<()> {
@@ -42,22 +75,6 @@ fn save_image(image: &str, tag: &str, to_dir: &str) -> io::Result<()> {
                 Ok(())
             }
         }
-    }
-}
-
-#[derive(Builder)]
-struct Layer {
-    tar_file_path: String,
-    meta_json_str: String,
-}
-
-impl Layer {
-    fn get_tar_file_path(&self) -> &str {
-        self.tar_file_path.as_str()
-    }
-
-    fn get_meta_json_str(&self) -> &str {
-        self.meta_json_str.as_str()
     }
 }
 

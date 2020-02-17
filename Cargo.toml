@@ -1,8 +1,17 @@
 [package]
-name = "docker-extract"
+name = "docker_extract"
 version = "0.1.0"
 authors = ["fishi0x01"]
 edition = "2018"
+license-file = "LICENSE"
+readme = "README.md"
+description = "Extract filesystem from a docker image"
+keywords = ["docker", "extract", "filesystem", "decompress"]
+categories = ["filesystem"]
+
+[badges]
+circle-ci = { repository = "gh/fishi0x01/docker-extract", branch = "master" }
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 tar = "0.4.26"
