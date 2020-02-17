@@ -2,38 +2,56 @@
 extern crate derive_builder;
 extern crate tar;
 
-use std::fs;
-use std::process::Command;
-use tar::Archive;
 use serde_json::Value;
+use std::io::{Error, ErrorKind};
+use std::path::Path;
+use std::process::Command;
+use std::{fs, io};
+use tar::Archive;
+use tempdir::TempDir;
 
-pub fn save_image() -> bool {
+pub fn extract_image(image: &str, tag: &str, to_dir: &Path) -> io::Result<()> {
+    let tmp_dir = TempDir::new("docker-extract")?;
+    let tmp_dir_str = String::from(tmp_dir.path().to_str().unwrap());
+    save_image(image, tag, tmp_dir_str.as_str())?;
+    untar_layers(get_layers(image, tag, tmp_dir_str.as_str())?, to_dir)?;
+    Ok(())
+}
+
+fn save_image(image: &str, tag: &str, to_dir: &str) -> io::Result<()> {
+    let tar_file = String::from(format!("{}/image.tar", to_dir));
+    let unpacked_dir = String::from(format!("{}/image", to_dir));
     match Command::new("docker")
-        .args(&["save", "ubuntu:bionic-20200112", "-o" , "docker.tar"])
+        .args(&[
+            "save",
+            format!("{}:{}", image, tag).as_str(),
+            "-o",
+            tar_file.as_str(),
+        ])
         .status()
-        .expect("failed to run 'docker save'")
-        .success() {
-        false => false,
-        true => {
-            let mut archive = Archive::new(fs::File::open("docker.tar").expect("Error opening file"));
-            archive.unpack("docker").expect("Error to untar");
-            true
+    {
+        Err(e) => Err(e),
+        Ok(f) => {
+            if !f.success() {
+                Err(Error::new(
+                    ErrorKind::Other,
+                    format!("Error running 'docker save {}:{}'", image, tag).as_str(),
+                ))
+            } else {
+                Archive::new(fs::File::open(tar_file.as_str())?).unpack(unpacked_dir.as_str())?;
+                Ok(())
+            }
         }
     }
 }
 
 #[derive(Builder)]
-pub struct Layer {
-    id: String,
+struct Layer {
     tar_file_path: String,
     meta_json_str: String,
 }
 
 impl Layer {
-    fn get_id(&self) -> &str {
-        self.id.as_str()
-    }
-
     fn get_tar_file_path(&self) -> &str {
         self.tar_file_path.as_str()
     }
@@ -43,43 +61,46 @@ impl Layer {
     }
 }
 
-pub fn init_layer_vec() -> Vec<Layer> {
-    let repositories = fs::read_to_string("docker/repositories")
-        .expect("Cannot read repositories file");
-    let j: Value = serde_json::from_str(repositories.as_str()).expect("Could not parse repositories file");
-    let id = j["ubuntu"]["bionic-20200112"].as_str().unwrap();
-    let json_str = fs::read_to_string(format!("docker/{}/json", id))
-        .expect("Cannot read repositories file");
-    get_parent_layer(vec![LayerBuilder::default()
-        .id(String::from(id))
-        .tar_file_path(String::from(format!("docker/{}/layer.tar", id)))
-        .meta_json_str(String::from(json_str))
-        .build()
-        .unwrap()])
+fn get_layers(image: &str, tag: &str, tmp_dir: &str) -> io::Result<Vec<Layer>> {
+    let repositories = fs::read_to_string(format!("{}/image/repositories", tmp_dir))?;
+    let j: Value = serde_json::from_str(repositories.as_str())?;
+    let id = j[image][tag].as_str().unwrap_or("");
+    let json_str = fs::read_to_string(format!("{}/image/{}/json", tmp_dir, id))?;
+    Ok(get_parent_layer(
+        vec![LayerBuilder::default()
+            .tar_file_path(String::from(format!("{}/image/{}/layer.tar", tmp_dir, id)))
+            .meta_json_str(String::from(json_str))
+            .build()
+            .unwrap()],
+        tmp_dir,
+    ))
 }
 
-fn get_parent_layer(mut v: Vec<Layer>) -> Vec<Layer> {
-    let meta: Value = serde_json::from_str(v.last().unwrap().get_meta_json_str())
-        .expect("Could not parse meta json file");
+fn get_parent_layer(mut v: Vec<Layer>, tmp_dir: &str) -> Vec<Layer> {
+    let meta: Value = serde_json::from_str(v.last().unwrap().get_meta_json_str()).unwrap();
     if meta["parent"].is_string() {
-        let parent_id = meta["parent"].as_str().unwrap();
-        let parent_meta_json = fs::read_to_string(format!("docker/{}/json", parent_id))
-            .expect("Cannot read meta json file");
-        v.push(LayerBuilder::default()
-            .id(String::from(parent_id))
-            .tar_file_path(String::from(format!("docker/{}/layer.tar", parent_id)))
-            .meta_json_str(String::from(parent_meta_json))
-            .build()
-            .unwrap());
-        v = get_parent_layer(v);
+        let parent_id = meta["parent"].as_str().unwrap_or("");
+        let parent_meta_json =
+            fs::read_to_string(format!("{}/image/{}/json", tmp_dir, parent_id)).unwrap();
+        v.push(
+            LayerBuilder::default()
+                .tar_file_path(String::from(format!(
+                    "{}/image/{}/layer.tar",
+                    tmp_dir, parent_id
+                )))
+                .meta_json_str(String::from(parent_meta_json))
+                .build()
+                .unwrap(),
+        );
+        v = get_parent_layer(v, tmp_dir);
     }
     v
 }
 
-pub fn untar_layers(v: Vec<Layer>) {
+fn untar_layers(v: Vec<Layer>, to_dir: &Path) -> io::Result<()> {
     for l in v.iter().rev() {
-        println!("{}", l.get_id());
-        let mut archive = Archive::new(fs::File::open(l.get_tar_file_path()).expect("Error opening tar layer"));
-        archive.unpack("docker/fs").expect("Error to untar");
+        Archive::new(fs::File::open(l.get_tar_file_path())?)
+            .unpack(to_dir.display().to_string())?;
     }
+    Ok(())
 }

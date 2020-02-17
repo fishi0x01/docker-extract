@@ -8,8 +8,11 @@ jobs:
       - setup_remote_docker
       - checkout
       - run:
-          name: pull docker image
+          name: pull ubuntu test image
           command: 'docker pull ubuntu:bionic-20200112'
       - run:
-          name: test
+          name: pull alpine test image
+          command: 'docker pull alpine:3.11.3'
+      - run:
+          name: test extract
           command: 'cargo test'
