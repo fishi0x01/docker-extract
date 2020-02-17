@@ -1,8 +1,8 @@
 #[cfg(test)]
 use docker_extract::extract_image;
+use std::io;
 use std::path::Path;
 use tempdir::TempDir;
-use std::io;
 
 #[test]
 fn test_extract_ubuntu() {
@@ -33,6 +33,10 @@ fn test_extract_non_existing() {
     let result = extract_image("does-not", "exist", Path::new(tmp_dir_str.as_str()));
     assert_eq!(
         result.err().unwrap().to_string(),
-        io::Error::new(io::ErrorKind::Other, "Error running 'docker save does-not:exist'").to_string()
+        io::Error::new(
+            io::ErrorKind::Other,
+            "Error running 'docker save does-not:exist'"
+        )
+        .to_string()
     );
 }
