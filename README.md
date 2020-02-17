@@ -18,3 +18,13 @@ fn main() {
     docker_extract::extract_image(image, tag, &to_dir);
 }
 ```
+
+## Details
+
+The following procedure describes what `docker-extract` does:
+
+1. Run `docker save {image}:{tag} -o {tmp_dir}/image.tar`
+2. Extract all layers from `${tmp_dir}/image_tar` to wanted result dir
+3. Delete `${tmp_dir}`
+
+It follows, that `docker-extract` needs access to `docker` and that `{image}:{tag}` is already pulled.
