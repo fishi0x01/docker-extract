@@ -20,7 +20,7 @@ use tempdir::TempDir;
 ///
 ///fn main() -> io::Result<()>{
 ///    let image = "alpine";
-///    let tag = "latest";
+///    let tag = "3.11.3";
 ///#    let tmp_dir = TempDir::new("docker-extract-docu").expect("");
 ///#    let dir_string = String::from(tmp_dir.path().to_str().unwrap());
 ///    let to_dir = Path::new(dir_string.as_str());
