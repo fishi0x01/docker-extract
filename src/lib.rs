@@ -11,6 +11,7 @@ use tar::Archive;
 use tempdir::TempDir;
 
 /// Extract filesystem of the given docker image (`{image}:{tag}`) to the given path `to_dir`.
+/// Does not extract symlinks to absolute paths, as they will point to wrong references anyways.
 ///
 /// **Example:**
 /// ```rust
@@ -114,10 +115,36 @@ fn get_parent_layer(mut v: Vec<Layer>, tmp_dir: &str) -> Vec<Layer> {
     v
 }
 
-fn untar_layers(v: Vec<Layer>, to_dir: &Path) -> io::Result<()> {
+fn untar_layers(v: Vec<Layer>, dst: &Path) -> io::Result<()> {
     for l in v.iter().rev() {
-        Archive::new(fs::File::open(l.get_tar_file_path())?)
-            .unpack(to_dir.display().to_string())?;
+        let mut archive = Archive::new(fs::File::open(l.get_tar_file_path())?);
+        for file_raw in archive.entries().unwrap() {
+            let mut do_unpack = true;
+            let mut file = file_raw.unwrap();
+            if file.header().entry_type().is_symlink() {
+                let symlink = String::from(file
+                    .header()
+                    .link_name()
+                    .unwrap()
+                    .unwrap()
+                    .display()
+                    .to_string());
+                if symlink.starts_with("/") {
+                    // Absolute symlinks will point to wrong destinations
+                    // TODO: make absolute symlink relative to {dst} instead
+                    do_unpack = false;
+                }
+            }
+            if do_unpack {
+                match file.unpack_in(dst.display().to_string()) {
+                    Err(e) => {
+                        println!("{}", e);
+                        ()
+                    }
+                    Ok(_) => (),
+                }
+            }
+        }
     }
     Ok(())
 }

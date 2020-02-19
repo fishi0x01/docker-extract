@@ -40,3 +40,10 @@ fn test_extract_non_existing() {
         .to_string()
     );
 }
+
+#[test]
+fn test_extract_with_absolute_symlinks() {
+    let tmp_dir = TempDir::new("docker-extract-test").unwrap();
+    let tmp_dir_str = String::from(tmp_dir.path().to_str().unwrap());
+    extract_image("tiangolo/uwsgi-nginx-flask", "python3.6", Path::new(tmp_dir_str.as_str())).unwrap();
+}

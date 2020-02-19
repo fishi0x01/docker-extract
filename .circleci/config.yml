@@ -14,5 +14,8 @@ jobs:
           name: pull alpine test image
           command: 'docker pull alpine:3.11.3'
       - run:
+          name: pull flask image with absolute symlinks
+          command: 'docker pull tiangolo/uwsgi-nginx-flask:python3.6'
+      - run:
           name: test extract
           command: 'cargo test'
