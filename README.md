@@ -4,6 +4,8 @@
 
 # docker-extract
 
+[Code documentation](https://docs.rs/docker_extract/0.2.0/)
+
 `docker-extract` is a rust library that extracts the filesystem from a docker image. 
 
 Here is an example to extract `alpine:latest` to directory `./docker-fs`:
@@ -19,7 +21,14 @@ fn main() {
 }
 ```
 
-## Details
+## Security
+
+This library relies on the [tar crate](https://github.com/alexcrichton/tar-rs), which is very conscious about security concerns. 
+To prevent directory traversal issues, it will not unpack anything outside the specified output directory, i.e., paths with `..` in their name will not be unpacked.
+
+Further, `docker-extract` does not extract symlinks to absolute paths, as they will point to wrong references anyways.
+
+## Detailed extraction procedure
 
 The following procedure describes what `docker-extract` does:
 
